@@ -7,20 +7,33 @@ import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import com.androidtraining.conwaysgameoflife.R
 import com.androidtraining.conwaysgameoflife.UI.VisualGrid.VisualGridView
 import com.androidtraining.conwaysgameoflife.model.SquareCell
-//import com.androidtraining.conwaysgameoflife.R.id.gridGame
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.app_bar_main.*
+import android.os.Handler
+import java.util.*
+import android.support.v4.os.HandlerCompat.postDelayed
+import android.widget.TextView
+import kotlin.concurrent.schedule
+
 
 class MainActivity : MainContract.View, AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     private val presenter: MainContract.Presenter = MainPresenter(this)
     private lateinit var gridGame: VisualGridView
+    private lateinit var mHandler: Handler
+    private lateinit var txtGeneration: TextView
 
     override fun updateCell(cell: SquareCell) {
-        gridGame.activateCell(cell.column, cell.row, !cell.isDead)
+        runOnUiThread {
+            gridGame.activateCell(cell.column, cell.row, cell.isAlive)
+        }
+    }
+
+    override fun updateTextGeneration(currentGeneration: Int) {
+        val tmpString = "Current Generation: $currentGeneration"
+        txtGeneration.text = tmpString
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,8 +51,9 @@ class MainActivity : MainContract.View, AppCompatActivity(), NavigationView.OnNa
 
         nav_view.setNavigationItemSelectedListener(this)
 
+        txtGeneration = findViewById(R.id.txtGeneration)
         gridGame = findViewById(R.id.gridGame)
-
+        mHandler = Handler()
     }
 
     override fun onBackPressed() {
@@ -63,13 +77,38 @@ class MainActivity : MainContract.View, AppCompatActivity(), NavigationView.OnNa
                 true
             }
             R.id.action_random_cells -> {
-                gridGame.clearCells()
-                presenter.initializeEnvironment(gridGame.columns, gridGame.rows)
-                presenter.activateRandomCells(Math.round((20 * gridGame.cellsCount) / 100.0).toInt())
+                showRandomGrid()
+                true
+            }
+            R.id.action_play -> {
+//                val runnable = object : Runnable {
+//                    override fun run() {
+//                        runOnUiThread {
+//                            presenter.play()
+//                        }
+//                        mHandler.postDelayed(this, 3000)
+//                    }
+//                }
+//
+//                mHandler.postDelayed(runnable, 0)
+
+                Timer("", false).schedule(0,500){
+                    runOnUiThread {
+                        presenter.play()
+                    }
+                }
+                //presenter.play()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun showRandomGrid() {
+        gridGame.clearCells()
+        presenter.initializeEnvironment(gridGame.columns, gridGame.rows)
+        presenter.calculateRandomCells(Math.round((20 * gridGame.cellsCount) / 100.0).toInt())
+        presenter.activateCurrentGeneration()
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
