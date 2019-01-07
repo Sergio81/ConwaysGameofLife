@@ -4,11 +4,14 @@ import com.androidtraining.conwaysgameoflife.model.SquareCell
 
 interface MainContract {
     interface Presenter{
-        fun activateRandomCells(activeCells:Int)
+        fun calculateRandomCells(activeCells:Int)
+        fun activateCurrentGeneration()
         fun initializeEnvironment(columns: Int, rows: Int)
-        fun PlayGame()
+        fun calculateNextGeneration()
+        fun play()
     }
     interface View{
         fun updateCell(cell: SquareCell)
+        fun updateTextGeneration(currentGeneration:Int)
     }
 }

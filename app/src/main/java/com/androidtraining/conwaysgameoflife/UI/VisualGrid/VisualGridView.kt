@@ -1,14 +1,17 @@
 package com.androidtraining.conwaysgameoflife.UI.VisualGrid
 
+import android.arch.lifecycle.LifecycleObserver
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import com.androidtraining.conwaysgameoflife.BuildConfig
 
-class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
+class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, attrs), LifecycleObserver {
     //region fields
     var columns: Int = 30
     var rows: Int = 0
@@ -31,9 +34,11 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
     private var clickX = 0f
     private var clickY = 0f
 
-    private val lineStyle = Paint().apply {
+    private var strokeGridWidth = 3f
+
+    private var lineStyle = Paint().apply {
         color = Color.BLACK
-        strokeWidth = 3f
+        strokeWidth = strokeGridWidth
     }
 
     var cellsCount = 0
@@ -52,6 +57,13 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
             columns = attrs.getAttributeIntValue(nameSpace, "columns", 10)
             showGrid = attrs.getAttributeBooleanValue(nameSpace, "showGrid", true)
             allowClick = attrs.getAttributeBooleanValue(nameSpace, "allowClick", true)
+
+            if (!showGrid) {
+                strokeGridWidth = 0f
+                lineStyle = Paint().apply {
+                    strokeWidth = strokeGridWidth
+                }
+            }
 
             if (!autoColumns)
                 rows = attrs.getAttributeIntValue(nameSpace, "rows", 10)
@@ -75,8 +87,7 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
         }
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
+    private fun updateMeasures(w: Int, h: Int) {
         maxWidth = w.toFloat()
         maxHeight = h.toFloat()
 
@@ -91,14 +102,50 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
         cellHeight = maxHeight / rows.toFloat()
     }
 
+    private fun measureDimension(desiredSize: Int, measureSpec: Int): Int {
+        var result: Int
+        val specMode = View.MeasureSpec.getMode(measureSpec)
+        val specSize = View.MeasureSpec.getSize(measureSpec)
+
+        if (specMode == View.MeasureSpec.EXACTLY) {
+            result = specSize
+        } else {
+            result = desiredSize
+            if (specMode == View.MeasureSpec.AT_MOST) {
+                result = Math.min(result, specSize)
+            }
+        }
+
+        if (result < desiredSize) {
+            Log.e("ChartView", "The view is too small, the content might get cut")
+        }
+        return result
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        Log.v("Chart onMeasure w", View.MeasureSpec.toString(widthMeasureSpec))
+        Log.v("Chart onMeasure h", View.MeasureSpec.toString(heightMeasureSpec))
+
+        val desiredWidth = suggestedMinimumWidth + paddingLeft + paddingRight
+        val desiredHeight = suggestedMinimumHeight + paddingTop + paddingBottom
+
+        setMeasuredDimension(
+            measureDimension(desiredWidth, widthMeasureSpec),
+            measureDimension(desiredHeight, heightMeasureSpec)
+        )
+        updateMeasures(desiredWidth, desiredHeight)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
         this.canvas = canvas
+        updateMeasures(width, height)
         drawGrid()
     }
 
     private fun drawGrid() {
+        val offset = strokeGridWidth / 2
         canvas.apply {
             drawRect(
                 margin,
@@ -132,7 +179,15 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
                             height = cellHeight
                         })
                     } else if (rowOfCells[j].isActive) {
-                        activateCell(j, i, true)
+                        //activateCell(j, i, true)
+                        canvas.drawRect(
+                            x + offset,
+                            y + offset,
+                            x + cellWidth - offset,
+                            y + cellHeight - offset,
+                            Paint().apply {
+                                color = if (rowOfCells[j].isActive) Color.BLACK else Color.WHITE
+                            })
                     }
 
                     if (showGrid)
@@ -151,12 +206,8 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
     }
 
     fun activateCell(column: Int, row: Int, active: Boolean) {
-        var x = if (column == 0) margin else (cellWidth * column) + margin
-        var y = if (row == 0) margin else (cellHeight * row) + margin
-
-        canvas.drawRect(x, y, x + cellWidth, y + cellHeight, Paint().apply {
-            color = if (active) Color.BLACK else Color.WHITE
-        })
+        cells[row][column].isActive = active
+        postInvalidate()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -177,8 +228,6 @@ class VisualGridView(context: Context, attrs: AttributeSet?) : View(context, att
                 invalidate()
             }
         }
-
-
 
         return super.onTouchEvent(event)
     }
